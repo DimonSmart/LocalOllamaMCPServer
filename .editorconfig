@@ -1,0 +1,10 @@
+root = true
+
+[*.cs]
+# CA1848: Use LoggerMessage delegates
+# Suppressed: For a simple MCP server, the performance gain is negligible
+dotnet_diagnostic.CA1848.severity = none
+
+# CA1031: Do not catch general exception types
+# Suppressed: The outer catch is needed to keep the MCP server running when processing malformed JSON
+dotnet_diagnostic.CA1031.severity = none
