@@ -1,0 +1,33 @@
+[
+  {
+    "Duration": 571,
+    "RecordedAt": "2025-11-27T23:19:56.0976554+01:00",
+    "Request": {
+      "Body": "{\"model\":\"phi4:latest\",\"prompt\":\"Say hello\",\"stream\":false,\"options\":{\"temperature\":0.7}}",
+      "BodyContentType": "Json",
+      "ContentHeaders": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "89"
+      },
+      "Method": "POST",
+      "RequestHeaders": {},
+      "Uri": "http://localhost:11434/api/generate"
+    },
+    "Response": {
+      "Body": "{\"model\":\"phi4:latest\",\"created_at\":\"2025-11-27T22:19:55.9297252Z\",\"response\":\"Hello! How can I assist you today?\",\"done\":true,\"done_reason\":\"stop\",\"context\":[100264,882,100266,198,46864,24748,100265,198,100264,78191,100266,198,9906,0,2650,649,358,7945,499,3432,30],\"total_duration\":23417173300,\"load_duration\":14259244300,\"prompt_eval_count\":12,\"prompt_eval_duration\":3362879700,\"eval_count\":10,\"eval_duration\":5717986300}",
+      "BodyContentType": "Json",
+      "ContentHeaders": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "423"
+      },
+      "HttpVersion": "1.1",
+      "ResponseHeaders": {
+        "Date": "Thu, 27 Nov 2025 22:19:55 GMT"
+      },
+      "Status": {
+        "Code": 200,
+        "Message": "OK"
+      }
+    }
+  }
+]

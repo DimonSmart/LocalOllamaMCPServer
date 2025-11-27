@@ -10,7 +10,7 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
         public async Task GenerateAsync_ReturnsResponse_WhenCalledWithValidParams()
         {
             // Arrange
-            var cassettePath = Path.Combine(Directory.GetCurrentDirectory(), "cassettes");
+            var cassettePath = Path.Combine(GetProjectRoot(), "cassettes");
             if (!Directory.Exists(cassettePath))
             {
                 Directory.CreateDirectory(cassettePath);
@@ -49,12 +49,23 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
             }
             catch (Exception ex)
             {
-                throw new Exception("Failed to query Ollama. Ensure Ollama is running and 'tinyllama' is pulled if recording.", ex);
+                throw new Exception("Failed to query Ollama. Ensure Ollama is running and the specified model is pulled if recording.", ex);
             }
 
             // Assert
             Assert.NotNull(result);
             Assert.NotEmpty(result);
+        }
+
+        private static string GetProjectRoot()
+        {
+            var path = Directory.GetCurrentDirectory();
+            var directory = new DirectoryInfo(path);
+            while (directory != null && directory.GetFiles("*.csproj").Length == 0)
+            {
+                directory = directory.Parent;
+            }
+            return directory?.FullName ?? path;
         }
     }
 }
