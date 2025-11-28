@@ -1,8 +1,10 @@
+using System.Collections.ObjectModel;
+
 namespace DimonSmart.LocalOllamaMCPServer.Configuration
 {
-    public class AppConfig
+    internal sealed class AppConfig
     {
-        public List<OllamaServerConfig> Servers { get; set; } = new();
+        public Collection<OllamaServerConfig> Servers { get; } = new();
         public string? DefaultServerName { get; set; }
     }
 }

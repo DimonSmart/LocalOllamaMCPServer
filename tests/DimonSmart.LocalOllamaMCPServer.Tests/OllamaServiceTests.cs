@@ -1,5 +1,8 @@
 using EasyVCR;
 using DimonSmart.LocalOllamaMCPServer;
+using DimonSmart.LocalOllamaMCPServer.Configuration;
+using Microsoft.Extensions.Options;
+using Moq;
 using Xunit;
 
 namespace DimonSmart.LocalOllamaMCPServer.Tests
@@ -34,7 +37,28 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
             }
 
             var httpClient = vcr.Client;
-            var service = new OllamaService(httpClient, "http://localhost:11434");
+            // Ensure the client has a base address as expected by the service
+            httpClient.BaseAddress = new Uri("http://localhost:11434");
+
+            // Mock IHttpClientFactory
+            var mockFactory = new Mock<IHttpClientFactory>();
+            mockFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            // Mock IOptions<AppConfig>
+            var appConfig = new AppConfig
+            {
+                DefaultServerName = "test",
+            };
+            appConfig.Servers.Add(new OllamaServerConfig
+            {
+                Name = "test",
+                BaseUrl = new Uri("http://localhost:11434")
+            });
+
+            var mockOptions = new Mock<IOptions<AppConfig>>();
+            mockOptions.Setup(o => o.Value).Returns(appConfig);
+
+            var service = new OllamaService(mockFactory.Object, mockOptions.Object);
 
             var options = new Dictionary<string, object>
             {

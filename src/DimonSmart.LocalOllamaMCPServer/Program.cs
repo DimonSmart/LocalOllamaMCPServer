@@ -33,21 +33,21 @@ namespace DimonSmart.LocalOllamaMCPServer
 
             // Register HttpClients dynamically
             var appConfig = configuration.GetSection("Ollama").Get<AppConfig>() ?? new AppConfig();
-            
+
             // Add default server from environment variable if not present in config but env var exists
             var envBaseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL");
-            if (!string.IsNullOrEmpty(envBaseUrl) && !appConfig.Servers.Any(s => s.BaseUrl == envBaseUrl))
+            if (!string.IsNullOrEmpty(envBaseUrl) && !appConfig.Servers.Any(s => s.BaseUrl.ToString() == envBaseUrl))
             {
-                 // This is a bit tricky since we are binding from config section. 
-                 // But we can just rely on the fact that if OLLAMA_BASE_URL is set, it might be used if we map it correctly.
-                 // For now, let's stick to the explicit config or standard env vars mapping if the user maps them to Ollama:Servers:0:...
+                // This is a bit tricky since we are binding from config section. 
+                // But we can just rely on the fact that if OLLAMA_BASE_URL is set, it might be used if we map it correctly.
+                // For now, let's stick to the explicit config or standard env vars mapping if the user maps them to Ollama:Servers:0:...
             }
 
             foreach (var serverConfig in appConfig.Servers)
             {
                 services.AddHttpClient(serverConfig.Name, client =>
                 {
-                    client.BaseAddress = new Uri(serverConfig.BaseUrl);
+                    client.BaseAddress = serverConfig.BaseUrl;
                 })
                 .ConfigurePrimaryHttpMessageHandler(() =>
                 {
