@@ -13,18 +13,21 @@ internal static class OllamaTools
     [McpServerTool(Name = "query_ollama")]
     [Description("Send a prompt to a local Ollama model and get the response. Useful for testing prompts against small local models.")]
     public static async Task<string> QueryOllama(
-        [Description("The name of the model to query (e.g., 'llama3', 'mistral').")] 
+        [Description("The name of the model to query (e.g., 'llama3', 'mistral').")]
         string model_name,
-        [Description("The prompt text to send to the model.")] 
+        [Description("The prompt text to send to the model.")]
         string prompt,
-        [Description("Optional parameters for the model (e.g., temperature, top_p).")] 
-        JsonElement? options,
-        [Description("Optional name of the Ollama server connection to use. If omitted, the default server is used.")] 
-        string? connection_name,
-        IOllamaService ollamaService,
-        ILogger<IOllamaService> logger,
+        [Description("Optional parameters for the model (e.g., temperature, top_p).")]
+        JsonElement? options = null,
+        [Description("Optional name of the Ollama server connection to use. If omitted, the default server is used.")]
+        string? connection_name = null,
+        IOllamaService? ollamaService = null,
+        ILogger<IOllamaService>? logger = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(ollamaService);
+        ArgumentNullException.ThrowIfNull(logger);
+
         logger.LogInformation("QueryOllama called: model={Model}, connection={Connection}", model_name, connection_name ?? "default");
 
         Dictionary<string, object>? optionsDict = null;
@@ -45,9 +48,12 @@ internal static class OllamaTools
     [McpServerTool(Name = "list_ollama_connections")]
     [Description("List available Ollama server connections.")]
     public static string ListOllamaConnections(
-        IOllamaService ollamaService,
-        ILogger<IOllamaService> logger)
+        IOllamaService? ollamaService = null,
+        ILogger<IOllamaService>? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(ollamaService);
+        ArgumentNullException.ThrowIfNull(logger);
+
         logger.LogInformation("ListOllamaConnections called");
 
         var configs = ollamaService.GetConfigurations();

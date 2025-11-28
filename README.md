@@ -14,6 +14,7 @@ A Model Context Protocol (MCP) server that provides tools to query local Ollama 
 * Support for multiple Ollama server connections with authentication
 * Automatic tool schema generation from method signatures
 * SSL certificate validation control for self-signed certificates
+* 1-hour default timeout for long-running model inference requests
 
 ## Prerequisites
 
@@ -163,7 +164,7 @@ List all configured Ollama server connections. Passwords are masked for security
 
 ## Configuration
 
-The server supports multiple Ollama instances through configuration. You can configure connections using either `appsettings.json` or environment variables.
+The server supports multiple Ollama instances through configuration. You can configure connections using either `appsettings.json` or environment variables. If no configuration is provided, the server will automatically use default settings with a local Ollama server at `http://localhost:11434`.
 
 ### Configuration via appsettings.json
 

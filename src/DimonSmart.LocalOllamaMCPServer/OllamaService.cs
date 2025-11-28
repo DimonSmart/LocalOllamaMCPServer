@@ -16,9 +16,23 @@ internal sealed class OllamaService : IOllamaService
     public OllamaService(IHttpClientFactory httpClientFactory, IOptions<AppConfig> config, ILogger<OllamaService> logger)
     {
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
-        _config = config?.Value ?? throw new ArgumentNullException(nameof(config));
+        _config = config?.Value ?? new AppConfig();
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
+
+        // Ensure we have at least a default server
+        if (_config.Servers == null || _config.Servers.Count == 0)
+        {
+            _config.Servers = new List<OllamaServerConfig>
+            {
+                new OllamaServerConfig
+                {
+                    Name = "local",
+                    BaseUrl = new Uri("http://localhost:11434")
+                }
+            };
+            _config.DefaultServerName = "local";
+        }
+
         _logger.LogInformation("OllamaService initialized with {Count} servers", _config.Servers.Count);
     }
 

@@ -21,10 +21,10 @@ internal sealed class Program
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
                 ?? "Unknown";
-            
+
             var appBasePath = AppContext.BaseDirectory;
             var configPath = Path.Combine(appBasePath, "appsettings.json");
-            
+
             Console.WriteLine($"DimonSmart.LocalOllamaMCPServer v{version}");
             Console.WriteLine($"Config file: {configPath}");
             Console.WriteLine($"Config exists: {File.Exists(configPath)}");
@@ -37,7 +37,7 @@ internal sealed class Program
         var basePath = AppContext.BaseDirectory;
         builder.Configuration
             .SetBasePath(basePath)
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
             .AddEnvironmentVariables();
 
         builder.Services.Configure<AppConfig>(builder.Configuration.GetSection("Ollama"));
@@ -60,8 +60,11 @@ internal sealed class Program
         builder.Services
             .AddMcpServer(options =>
             {
-                options.ServerInfo.Name = "dimonsmart-local-ollama-mcp-server";
-                options.ServerInfo.Version = "1.0.0";
+                options.ServerInfo ??= new()
+                {
+                    Name = "dimonsmart-local-ollama-mcp-server",
+                    Version = "2.0.3"
+                };
             })
             .WithStdioServerTransport()
             .WithToolsFromAssembly();
@@ -75,10 +78,22 @@ internal sealed class Program
         services.AddHttpClient();
 
         var appConfig = configuration.GetSection("Ollama").Get<AppConfig>();
-        
-        if (appConfig == null)
+
+        if (appConfig == null || appConfig.Servers == null || appConfig.Servers.Count == 0)
         {
-            return;
+            // Configure default local server
+            appConfig = new AppConfig
+            {
+                DefaultServerName = "local",
+                Servers = new List<OllamaServerConfig>
+                {
+                    new OllamaServerConfig
+                    {
+                        Name = "local",
+                        BaseUrl = new Uri("http://localhost:11434")
+                    }
+                }
+            };
         }
 
         foreach (var serverConfig in appConfig.Servers)
@@ -86,6 +101,8 @@ internal sealed class Program
             services.AddHttpClient(serverConfig.Name, client =>
                 {
                     client.BaseAddress = serverConfig.BaseUrl;
+                    // Set timeout to 1 hour for long-running local model inference
+                    client.Timeout = TimeSpan.FromHours(1);
                 })
                 .ConfigurePrimaryHttpMessageHandler(() =>
                 {
