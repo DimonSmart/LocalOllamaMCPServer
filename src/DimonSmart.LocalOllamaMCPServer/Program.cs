@@ -31,6 +31,9 @@ namespace DimonSmart.LocalOllamaMCPServer
                 configure.SetMinimumLevel(LogLevel.Information);
             });
 
+            // Always register the IHttpClientFactory infrastructure so DI works even before servers are configured
+            services.AddHttpClient();
+
             // Register HttpClients dynamically
             var appConfig = configuration.GetSection("Ollama").Get<AppConfig>() ?? new AppConfig();
 
