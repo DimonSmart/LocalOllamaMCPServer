@@ -1,30 +1,68 @@
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using DimonSmart.LocalOllamaMCPServer.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace DimonSmart.LocalOllamaMCPServer
 {
     internal interface IOllamaService
     {
-        Task<string> GenerateAsync(string model, string prompt, Dictionary<string, object>? options);
+        Task<string> GenerateAsync(string model, string prompt, Dictionary<string, object>? options, string? connectionName = null);
+        IEnumerable<OllamaServerConfig> GetConfigurations();
     }
 
     internal sealed class OllamaService : IOllamaService
     {
-        private readonly HttpClient _httpClient;
-        private readonly Uri _baseUri;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly AppConfig _config;
 
-        public OllamaService(HttpClient httpClient, string baseUrl = "http://localhost:11434")
+        public OllamaService(IHttpClientFactory httpClientFactory, IOptions<AppConfig> config)
         {
-            ArgumentNullException.ThrowIfNull(httpClient);
-            ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
-
-            _httpClient = httpClient;
-            _baseUri = new Uri(baseUrl.TrimEnd('/'));
+            _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+            _config = config?.Value ?? throw new ArgumentNullException(nameof(config));
         }
 
-        public async Task<string> GenerateAsync(string model, string prompt, Dictionary<string, object>? options)
+        public IEnumerable<OllamaServerConfig> GetConfigurations()
         {
+            return _config.Servers.Select(s => new OllamaServerConfig
+            {
+                Name = s.Name,
+                BaseUrl = s.BaseUrl,
+                User = s.User,
+                Password = string.IsNullOrEmpty(s.Password) ? null : "******",
+                IgnoreSsl = s.IgnoreSsl
+            });
+        }
+
+        public async Task<string> GenerateAsync(string model, string prompt, Dictionary<string, object>? options, string? connectionName = null)
+        {
+            var serverName = connectionName;
+            if (string.IsNullOrWhiteSpace(serverName))
+            {
+                serverName = _config.DefaultServerName;
+            }
+
+            if (string.IsNullOrWhiteSpace(serverName))
+            {
+                var first = _config.Servers.FirstOrDefault();
+                if (first != null)
+                {
+                    serverName = first.Name;
+                }
+                else
+                {
+                    throw new InvalidOperationException("No Ollama servers configured.");
+                }
+            }
+
+            var serverConfig = _config.Servers.FirstOrDefault(s => s.Name.Equals(serverName, StringComparison.OrdinalIgnoreCase));
+            if (serverConfig == null)
+            {
+                throw new ArgumentException($"Ollama server configuration '{serverName}' not found.");
+            }
+
+            var httpClient = _httpClientFactory.CreateClient(serverName!);
+
             var requestBody = new
             {
                 model = model,
@@ -36,8 +74,8 @@ namespace DimonSmart.LocalOllamaMCPServer
             var json = JsonSerializer.Serialize(requestBody);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var requestUri = new Uri(_baseUri, "/api/generate");
-            var response = await _httpClient.PostAsync(requestUri, content).ConfigureAwait(false);
+            // HttpClient BaseAddress is already set by the factory configuration
+            var response = await httpClient.PostAsync(new Uri("api/generate", UriKind.Relative), content).ConfigureAwait(false);
             var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
@@ -51,7 +89,7 @@ namespace DimonSmart.LocalOllamaMCPServer
                 return responseText.GetString() ?? "";
             }
 
-            return responseString; // Fallback to full JSON if "response" field is missing
+            return responseString;
         }
     }
 }

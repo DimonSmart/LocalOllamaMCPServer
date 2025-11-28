@@ -1,6 +1,11 @@
-﻿using System.Text.Json;
+﻿using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using DimonSmart.LocalOllamaMCPServer.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DimonSmart.LocalOllamaMCPServer
 {
@@ -10,14 +15,61 @@ namespace DimonSmart.LocalOllamaMCPServer
         {
             var services = new ServiceCollection();
 
-            // Configure Logging to write to Stderr so it doesn't interfere with JSON-RPC on Stdout
+            // Build configuration
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .Build();
+
+            services.Configure<AppConfig>(configuration.GetSection("Ollama"));
+
+            // Configure Logging
             services.AddLogging(configure =>
             {
                 configure.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
                 configure.SetMinimumLevel(LogLevel.Information);
             });
 
-            services.AddHttpClient<IOllamaService, OllamaService>();
+            // Register HttpClients dynamically
+            var appConfig = configuration.GetSection("Ollama").Get<AppConfig>() ?? new AppConfig();
+            
+            // Add default server from environment variable if not present in config but env var exists
+            var envBaseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL");
+            if (!string.IsNullOrEmpty(envBaseUrl) && !appConfig.Servers.Any(s => s.BaseUrl == envBaseUrl))
+            {
+                 // This is a bit tricky since we are binding from config section. 
+                 // But we can just rely on the fact that if OLLAMA_BASE_URL is set, it might be used if we map it correctly.
+                 // For now, let's stick to the explicit config or standard env vars mapping if the user maps them to Ollama:Servers:0:...
+            }
+
+            foreach (var serverConfig in appConfig.Servers)
+            {
+                services.AddHttpClient(serverConfig.Name, client =>
+                {
+                    client.BaseAddress = new Uri(serverConfig.BaseUrl);
+                })
+                .ConfigurePrimaryHttpMessageHandler(() =>
+                {
+                    var handler = new HttpClientHandler();
+                    if (serverConfig.IgnoreSsl)
+                    {
+                        handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+                    }
+                    return handler;
+                })
+                .ConfigureHttpClient(client =>
+                {
+                    if (!string.IsNullOrEmpty(serverConfig.User) && !string.IsNullOrEmpty(serverConfig.Password))
+                    {
+                        var authenticationString = $"{serverConfig.User}:{serverConfig.Password}";
+                        var base64EncodedAuthenticationString = Convert.ToBase64String(Encoding.ASCII.GetBytes(authenticationString));
+                        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", base64EncodedAuthenticationString);
+                    }
+                });
+            }
+
+            services.AddSingleton<IOllamaService, OllamaService>();
             services.AddSingleton<McpServer>();
 
             var serviceProvider = services.BuildServiceProvider();
@@ -30,6 +82,7 @@ namespace DimonSmart.LocalOllamaMCPServer
     internal sealed class McpServer
     {
         private static readonly string[] RequiredFields = ["model_name", "prompt"];
+        private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
         private readonly IOllamaService _ollamaService;
         private readonly ILogger<McpServer> _logger;
 
@@ -135,9 +188,21 @@ namespace DimonSmart.LocalOllamaMCPServer
                                     {
                                         model_name = new { type = "string", description = "The name of the model to query (e.g., 'llama3', 'mistral')." },
                                         prompt = new { type = "string", description = "The prompt text to send to the model." },
-                                        options = new { type = "object", description = "Optional parameters for the model (e.g., temperature, top_p).", additionalProperties = true }
+                                        options = new { type = "object", description = "Optional parameters for the model (e.g., temperature, top_p).", additionalProperties = true },
+                                        connection_name = new { type = "string", description = "Optional name of the Ollama server connection to use. If omitted, the default server is used." }
                                     },
                                     required = RequiredFields
+                                }
+                            },
+                            new Tool
+                            {
+                                Name = "list_ollama_connections",
+                                Description = "List available Ollama server connections.",
+                                InputSchema = new
+                                {
+                                    type = "object",
+                                    properties = new { },
+                                    required = Array.Empty<string>()
                                 }
                             }
                         }
@@ -164,13 +229,32 @@ namespace DimonSmart.LocalOllamaMCPServer
                             options = JsonSerializer.Deserialize<Dictionary<string, object>>(optionsElement.GetRawText());
                         }
 
-                        var result = await _ollamaService.GenerateAsync(model, prompt, options).ConfigureAwait(false);
+                        string? connectionName = null;
+                        if (callParams.Arguments.TryGetValue("connection_name", out var connObj))
+                        {
+                            connectionName = connObj?.ToString();
+                        }
+
+                        var result = await _ollamaService.GenerateAsync(model, prompt, options, connectionName).ConfigureAwait(false);
 
                         return new CallToolResult
                         {
                             Content = new List<ToolContent>
                             {
                                 new ToolContent { Type = "text", Text = result }
+                            },
+                            IsError = false
+                        };
+                    }
+                    else if (callParams?.Name == "list_ollama_connections")
+                    {
+                        var configs = _ollamaService.GetConfigurations();
+                        var json = JsonSerializer.Serialize(configs, IndentedOptions);
+                        return new CallToolResult
+                        {
+                            Content = new List<ToolContent>
+                            {
+                                new ToolContent { Type = "text", Text = json }
                             },
                             IsError = false
                         };

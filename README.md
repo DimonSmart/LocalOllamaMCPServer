@@ -52,6 +52,7 @@ The server communicates via Standard Input/Output (Stdio) using the MCP protocol
 - `model_name` (string): The name of the model to query (e.g., `llama3`, `mistral`).
 - `prompt` (string): The prompt text.
 - `options` (object, optional): Additional parameters for Ollama (e.g., `temperature`, `top_p`).
+- `connection_name` (string, optional): The name of the Ollama server connection to use. If omitted, the default server is used.
 
 **Example Request (JSON-RPC):**
 
@@ -64,6 +65,7 @@ The server communicates via Standard Input/Output (Stdio) using the MCP protocol
     "arguments": {
       "model_name": "llama3",
       "prompt": "Why is the sky blue?",
+      "connection_name": "remote-gpu",
       "options": {
         "temperature": 0.7
       }
@@ -72,6 +74,66 @@ The server communicates via Standard Input/Output (Stdio) using the MCP protocol
   "id": 1
 }
 ```
+
+### Tool: `list_ollama_connections`
+
+Lists all configured Ollama server connections. Passwords are masked.
+
+**Example Request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list_ollama_connections",
+    "arguments": {}
+  },
+  "id": 2
+}
+```
+
+## Configuration
+
+The server supports multiple Ollama connections via `appsettings.json` or environment variables.
+
+### appsettings.json
+
+You can configure multiple servers in `appsettings.json`. The `DefaultServerName` determines which server is used if `connection_name` is not provided.
+
+```json
+{
+  "Ollama": {
+    "DefaultServerName": "local",
+    "Servers": [
+      {
+        "Name": "local",
+        "BaseUrl": "http://localhost:11434"
+      },
+      {
+        "Name": "remote-gpu",
+        "BaseUrl": "https://my-gpu-server.com:11434",
+        "User": "admin",
+        "Password": "secret-password",
+        "IgnoreSsl": true
+      }
+    ]
+  }
+}
+```
+
+### Environment Variables
+
+You can also configure servers using environment variables (standard .NET configuration naming):
+
+- `Ollama__DefaultServerName=remote-gpu`
+- `Ollama__Servers__0__Name=local`
+- `Ollama__Servers__0__BaseUrl=http://localhost:11434`
+- `Ollama__Servers__1__Name=remote-gpu`
+- `Ollama__Servers__1__BaseUrl=https://my-gpu-server.com:11434`
+- `Ollama__Servers__1__User=admin`
+- `Ollama__Servers__1__Password=secret`
+- `Ollama__Servers__1__IgnoreSsl=true`
 
 ## Testing
 

@@ -31,11 +31,11 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       run: dotnet pack src/DimonSmart.LocalOllamaMCPServer/DimonSmart.LocalOllamaMCPServer.csproj -c Release -o nupkgs /p:Version=${GITHUB_REF#refs/tags/v}
 
-    - name: Publish .NET Tool to GitHub Packages
+    - name: Publish .NET Tool to NuGet
       if: startsWith(github.ref, 'refs/tags/')
-      run: dotnet nuget push nupkgs/*.nupkg --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
+      run: dotnet nuget push nupkgs/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
   docker:
     needs: build
