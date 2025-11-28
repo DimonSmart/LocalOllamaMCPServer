@@ -2,7 +2,6 @@
 
 [![.NET](https://github.com/DimonSmart/LocalOllamaMCPServer/actions/workflows/dotnet.yml/badge.svg)](https://github.com/DimonSmart/LocalOllamaMCPServer/actions/workflows/dotnet.yml)
 [![NuGet](https://img.shields.io/nuget/v/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This is a Model Context Protocol (MCP) server that provides a tool to query a local Ollama instance. It is designed to help larger models (like Claude, GPT-5) test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
