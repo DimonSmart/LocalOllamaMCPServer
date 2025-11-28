@@ -4,11 +4,18 @@
 [![NuGet](https://img.shields.io/nuget/v/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is a Model Context Protocol (MCP) server that provides a tool to query a local Ollama instance. It is designed to help larger models (like Claude, GPT-5) test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
+This is a Model Context Protocol (MCP) server that provides tools to query a local Ollama instance. Built with the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) SDK from Anthropic + Microsoft, it enables larger models (like Claude, GPT-4) to test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
+
+> **Version 2.0+** uses the official ModelContextProtocol SDK for full MCP specification compliance. See [MIGRATION.md](MIGRATION.md) for details.
 
 ## Features
 
-* **query_ollama**: A tool that sends a prompt to a specified local model and returns the response.
+* **query_ollama**: Send a prompt to a specified local Ollama model and get the response
+* **list_ollama_connections**: List all configured Ollama server connections
+* Full MCP specification compliance with proper JSON-RPC 2.0 framing
+* Support for multiple Ollama server connections
+* Automatic tool schema generation
+* Built-in dependency injection support
 
 ## Prerequisites
 

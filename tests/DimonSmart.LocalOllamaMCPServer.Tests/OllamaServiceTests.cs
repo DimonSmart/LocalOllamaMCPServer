@@ -1,6 +1,7 @@
 using EasyVCR;
 using DimonSmart.LocalOllamaMCPServer;
 using DimonSmart.LocalOllamaMCPServer.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -58,7 +59,10 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
             var mockOptions = new Mock<IOptions<AppConfig>>();
             mockOptions.Setup(o => o.Value).Returns(appConfig);
 
-            var service = new OllamaService(mockFactory.Object, mockOptions.Object);
+            // Mock ILogger
+            var mockLogger = new Mock<ILogger<OllamaService>>();
+
+            var service = new OllamaService(mockFactory.Object, mockOptions.Object, mockLogger.Object);
 
             var options = new Dictionary<string, object>
             {
