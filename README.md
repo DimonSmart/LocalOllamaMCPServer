@@ -4,18 +4,16 @@
 [![NuGet](https://img.shields.io/nuget/v/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is a Model Context Protocol (MCP) server that provides tools to query a local Ollama instance. Built with the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) SDK from Anthropic + Microsoft, it enables larger models (like Claude, GPT-4) to test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
-
-> **Version 2.0+** uses the official ModelContextProtocol SDK for full MCP specification compliance. See [MIGRATION.md](MIGRATION.md) for details.
+A Model Context Protocol (MCP) server that provides tools to query local Ollama instances. Built with the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) SDK from Anthropic + Microsoft, it enables larger models (like Claude, GPT-4) to test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
 
 ## Features
 
-* **query_ollama**: Send a prompt to a specified local Ollama model and get the response
-* **list_ollama_connections**: List all configured Ollama server connections
+* **query_ollama** - Send prompts to local Ollama models and get responses
+* **list_ollama_connections** - List all configured Ollama server connections
 * Full MCP specification compliance with proper JSON-RPC 2.0 framing
-* Support for multiple Ollama server connections
-* Automatic tool schema generation
-* Built-in dependency injection support
+* Support for multiple Ollama server connections with authentication
+* Automatic tool schema generation from method signatures
+* SSL certificate validation control for self-signed certificates
 
 ## Prerequisites
 
@@ -26,10 +24,16 @@ This is a Model Context Protocol (MCP) server that provides tools to query a loc
 
 ### As a .NET Tool
 
-First, install the tool globally:
+Install the tool globally:
 
 ```bash
 dotnet tool install --global DimonSmart.LocalOllamaMCPServer
+```
+
+To update to the latest version:
+
+```bash
+dotnet tool update --global DimonSmart.LocalOllamaMCPServer
 ```
 
 ### One-click install in VS Code (MCP)
@@ -90,16 +94,25 @@ Or if installed as a tool:
 DimonSmart.LocalOllamaMCPServer
 ```
 
-The server communicates via Standard Input/Output (Stdio) using the MCP protocol (JSON-RPC 2.0). It is intended to be used by an MCP client (like Claude Desktop, Cursor, or a custom agent).
+The server communicates via Standard Input/Output (stdio) using the MCP protocol. It is designed to be used by MCP clients such as:
 
-### Tool: `query_ollama`
+- [Claude Desktop](https://claude.ai/download)
+- [GitHub Copilot in VS Code](https://github.com/features/copilot)
+- [Cursor](https://cursor.sh/)
+- Custom agents and AI applications
 
-**Arguments:**
+### Available Tools
 
-* `model_name` (string): The name of the model to query (e.g., `llama3`, `mistral`).
-* `prompt` (string): The prompt text.
-* `options` (object, optional): Additional parameters for Ollama (e.g., `temperature`, `top_p`).
-* `connection_name` (string, optional): The name of the Ollama server connection to use. If omitted, the default server is used.
+#### `query_ollama`
+
+Send a prompt to a local Ollama model and receive the response.
+
+**Parameters:**
+
+* `model_name` (string, required) - Name of the Ollama model (e.g., `llama3`, `mistral`, `phi4`)
+* `prompt` (string, required) - The prompt text to send to the model
+* `options` (object, optional) - Model parameters such as `temperature`, `top_p`, etc.
+* `connection_name` (string, optional) - Name of the Ollama server connection. Uses default if omitted.
 
 **Example Request (JSON-RPC):**
 
@@ -122,9 +135,11 @@ The server communicates via Standard Input/Output (Stdio) using the MCP protocol
 }
 ```
 
-### Tool: `list_ollama_connections`
+#### `list_ollama_connections`
 
-Lists all configured Ollama server connections. Passwords are masked.
+List all configured Ollama server connections. Passwords are masked for security.
+
+**Parameters:** None
 
 **Example Request:**
 
@@ -142,11 +157,11 @@ Lists all configured Ollama server connections. Passwords are masked.
 
 ## Configuration
 
-The server supports multiple Ollama connections via `appsettings.json` or environment variables.
+The server supports multiple Ollama instances through configuration. You can configure connections using either `appsettings.json` or environment variables.
 
-### appsettings.json
+### Configuration via appsettings.json
 
-You can configure multiple servers in `appsettings.json`. The `DefaultServerName` determines which server is used if `connection_name` is not provided.
+Create or edit `appsettings.json` in the tool's installation directory. The `DefaultServerName` specifies which server to use when `connection_name` is not provided in tool calls.
 
 ```json
 {
@@ -169,24 +184,54 @@ You can configure multiple servers in `appsettings.json`. The `DefaultServerName
 }
 ```
 
-### Environment Variables
+**Server Configuration Properties:**
 
-You can also configure servers using environment variables (standard .NET configuration naming):
+- `Name` - Unique identifier for the server connection
+- `BaseUrl` - Ollama server URL
+- `User` (optional) - Username for Basic authentication
+- `Password` (optional) - Password for Basic authentication
+- `IgnoreSsl` (optional) - Set to `true` to accept self-signed SSL certificates
 
-* `Ollama__DefaultServerName=remote-gpu`
-* `Ollama__Servers__0__Name=local`
-* `Ollama__Servers__0__BaseUrl=http://localhost:11434`
-* `Ollama__Servers__1__Name=remote-gpu`
-* `Ollama__Servers__1__BaseUrl=https://my-gpu-server.com:11434`
-* `Ollama__Servers__1__User=admin`
-* `Ollama__Servers__1__Password=secret`
-* `Ollama__Servers__1__IgnoreSsl=true`
+### Configuration via Environment Variables
 
-## Testing
+You can also configure servers using environment variables following standard .NET configuration naming conventions:
 
-The project uses **EasyVCR** to record and replay HTTP interactions.
+```bash
+Ollama__DefaultServerName=remote-gpu
+Ollama__Servers__0__Name=local
+Ollama__Servers__0__BaseUrl=http://localhost:11434
+Ollama__Servers__1__Name=remote-gpu
+Ollama__Servers__1__BaseUrl=https://my-gpu-server.com:11434
+Ollama__Servers__1__User=admin
+Ollama__Servers__1__Password=secret
+Ollama__Servers__1__IgnoreSsl=true
+```
 
-To run tests:
+## Development
+
+### Building from Source
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/DimonSmart/LocalOllamaMCPServer.git
+   cd LocalOllamaMCPServer
+   ```
+
+2. Build the project:
+   ```bash
+   dotnet build
+   ```
+
+3. Run locally:
+   ```bash
+   dotnet run --project src/DimonSmart.LocalOllamaMCPServer/DimonSmart.LocalOllamaMCPServer.csproj
+   ```
+
+### Running Tests
+
+The project uses **EasyVCR** to record and replay HTTP interactions for reliable testing.
+
+Run all tests:
 
 ```bash
 dotnet test
@@ -194,17 +239,32 @@ dotnet test
 
 **Recording new cassettes:**
 
-1. Ensure Ollama is running locally.
-2. Ensure you have the model used in tests (e.g., `phi4:latest`) pulled: `ollama pull phi4:latest`.
-3. Delete the existing cassette in `tests/DimonSmart.LocalOllamaMCPServer.Tests/cassettes/`.
-4. Run the tests. A new cassette will be generated.
+1. Ensure Ollama is running locally
+2. Pull the test model: `ollama pull phi4:latest`
+3. Delete the existing cassette in `tests/DimonSmart.LocalOllamaMCPServer.Tests/cassettes/`
+4. Run the tests to generate a new cassette
 
-## CI/CD
+### CI/CD
 
-The project includes a GitHub Action workflow that:
+The project includes GitHub Actions workflows that:
 
-* Builds and tests on every push to `main`.
-* Publishes a NuGet package and Docker image to GitHub Packages on every tag (e.g., `v1.0.0`).
+* Build and test on every push to `main`
+* Publish NuGet package to NuGet.org on version tags (e.g., `v2.0.0`)
+* Create GitHub releases with artifacts
+
+## Technology Stack
+
+- **.NET 8.0** - Target framework
+- **[ModelContextProtocol SDK](https://github.com/modelcontextprotocol/csharp-sdk)** - Official MCP implementation
+- **Microsoft.Extensions.Hosting** - Application lifetime management
+- **Microsoft.Extensions.Http** - HTTP client factory
+- **EasyVCR** - HTTP recording for tests
+
+## Related Projects
+
+- [Model Context Protocol](https://modelcontextprotocol.io/) - Official MCP documentation
+- [Ollama](https://ollama.com/) - Run large language models locally
+- [MCP Servers Registry](https://github.com/modelcontextprotocol/servers) - Collection of MCP servers
 
 ## License
 
