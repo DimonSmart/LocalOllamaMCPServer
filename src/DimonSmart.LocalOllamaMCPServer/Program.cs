@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.Reflection;
 using System.Text;
 using DimonSmart.LocalOllamaMCPServer.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +14,23 @@ internal sealed class Program
 {
     private static async Task Main(string[] args)
     {
+        // Handle --version argument
+        if (args.Length > 0 && (args[0] == "--version" || args[0] == "-v"))
+        {
+            var version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                ?? "Unknown";
+            
+            var appBasePath = AppContext.BaseDirectory;
+            var configPath = Path.Combine(appBasePath, "appsettings.json");
+            
+            Console.WriteLine($"DimonSmart.LocalOllamaMCPServer v{version}");
+            Console.WriteLine($"Config file: {configPath}");
+            Console.WriteLine($"Config exists: {File.Exists(configPath)}");
+            return;
+        }
+
         var builder = Host.CreateApplicationBuilder(args);
 
         // Configure base path and configuration

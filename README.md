@@ -94,6 +94,12 @@ Or if installed as a tool:
 DimonSmart.LocalOllamaMCPServer
 ```
 
+To check the version and configuration file location:
+
+```bash
+DimonSmart.LocalOllamaMCPServer --version
+```
+
 The server communicates via Standard Input/Output (stdio) using the MCP protocol. It is designed to be used by MCP clients such as:
 
 - [Claude Desktop](https://claude.ai/download)
