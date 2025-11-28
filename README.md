@@ -1,5 +1,10 @@
 # DimonSmart.LocalOllamaMCPServer
 
+[![.NET](https://github.com/DimonSmart/LocalOllamaMCPServer/actions/workflows/dotnet.yml/badge.svg)](https://github.com/DimonSmart/LocalOllamaMCPServer/actions/workflows/dotnet.yml)
+[![NuGet](https://img.shields.io/nuget/v/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/DimonSmart.LocalOllamaMCPServer.svg)](https://www.nuget.org/packages/DimonSmart.LocalOllamaMCPServer/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 This is a Model Context Protocol (MCP) server that provides a tool to query a local Ollama instance. It is designed to help larger models (like Claude, GPT-5) test prompts against smaller local models (like Llama 3, Mistral, etc.) running on Ollama.
 
 ## Features
@@ -13,18 +18,33 @@ This is a Model Context Protocol (MCP) server that provides a tool to query a lo
 
 ## Installation
 
+### As a .NET Tool
+
+First, install the tool globally:
+
+```bash
+dotnet tool install --global DimonSmart.LocalOllamaMCPServer
+```
+
 ### One-click install in VS Code (MCP)
 
-If you use Visual Studio Code with GitHub Copilot Chat and MCP support enabled, you can add this server with a single click:
+After installing the .NET tool, you can add this server to VS Code or VS Code Insiders with a single click:
 
 [![Install in VS Code](https://img.shields.io/badge/VS%20Code-Install%20MCP-007ACC?style=flat&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect?url=vscode:mcp/install?%7B%22name%22%3A%20%22DimonSmart%20Local%20Ollama%20MCP%22%2C%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22DimonSmart.LocalOllamaMCPServer%22%7D)
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS%20Code%20Insiders-Install%20MCP-24BF60?style=flat&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect?url=vscode-insiders:mcp/install?%7B%22name%22%3A%20%22DimonSmart%20Local%20Ollama%20MCP%22%2C%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22DimonSmart.LocalOllamaMCPServer%22%7D)
 
 VS Code will show you the MCP configuration and let you choose whether to add it to your **user** or **workspace** settings.
 
-If you prefer the raw URL, you can use:
+If you prefer the raw URLs, you can use:
 
+**VS Code:**
 ```text
 vscode:mcp/install?%7B%22name%22%3A%20%22DimonSmart%20Local%20Ollama%20MCP%22%2C%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22DimonSmart.LocalOllamaMCPServer%22%7D
+```
+
+**VS Code Insiders:**
+```text
+vscode-insiders:mcp/install?%7B%22name%22%3A%20%22DimonSmart%20Local%20Ollama%20MCP%22%2C%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22DimonSmart.LocalOllamaMCPServer%22%7D
 ```
 
 And the underlying JSON configuration is:
@@ -38,12 +58,6 @@ And the underlying JSON configuration is:
 ```
 
 You can also paste this JSON into VS Code via the **MCP: Add Server** command from the Command Palette.
-
-### As a .NET Tool
-
-```bash
-dotnet tool install --global DimonSmart.LocalOllamaMCPServer
-```
 
 ### From Source
 
