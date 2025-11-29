@@ -36,13 +36,21 @@ internal static class OllamaTools
             optionsDict = JsonSerializer.Deserialize<Dictionary<string, object>>(options.Value.GetRawText());
         }
 
-        var result = await ollamaService.GenerateAsync(
-            model_name,
-            prompt,
-            optionsDict,
-            connection_name).ConfigureAwait(false);
+        try
+        {
+            var result = await ollamaService.GenerateAsync(
+                model_name,
+                prompt,
+                optionsDict,
+                connection_name).ConfigureAwait(false);
 
-        return result;
+            return result;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error executing QueryOllama");
+            return $"Error: {ex.Message}";
+        }
     }
 
     [McpServerTool(Name = "list_ollama_connections")]

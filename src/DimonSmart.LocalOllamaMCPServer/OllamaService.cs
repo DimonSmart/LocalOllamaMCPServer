@@ -77,6 +77,11 @@ internal sealed class OllamaService : IOllamaService
 
         var httpClient = _httpClientFactory.CreateClient(serverName!);
 
+        if (httpClient.BaseAddress == null)
+        {
+            throw new InvalidOperationException($"HttpClient for server '{serverName}' has no BaseAddress configured. This usually means the server name was not properly registered at startup.");
+        }
+
         var requestBody = new
         {
             model = model,
@@ -88,8 +93,17 @@ internal sealed class OllamaService : IOllamaService
         var json = JsonSerializer.Serialize(requestBody);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        // HttpClient BaseAddress is already set by the factory configuration
-        var response = await httpClient.PostAsync(new Uri("api/generate", UriKind.Relative), content).ConfigureAwait(false);
+        HttpResponseMessage response;
+        try
+        {
+            // HttpClient BaseAddress is already set by the factory configuration
+            response = await httpClient.PostAsync(new Uri("api/generate", UriKind.Relative), content).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new HttpRequestException($"Failed to connect to Ollama server '{serverName}' at '{httpClient.BaseAddress}': {ex.Message}", ex);
+        }
+
         var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
