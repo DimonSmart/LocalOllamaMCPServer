@@ -10,6 +10,8 @@ A Model Context Protocol (MCP) server that provides tools to query local Ollama 
 
 * **query_ollama** - Send prompts to local Ollama models and get responses
 * **list_ollama_connections** - List all configured Ollama server connections
+* **list_ollama_models** - Inspect which models are available on each Ollama server
+* Interactive elicitation fallback when a requested model is missing (MCP 0.4.1 preview)
 * Full MCP specification compliance with proper JSON-RPC 2.0 framing
 * Support for multiple Ollama server connections with authentication
 * Automatic tool schema generation from method signatures
@@ -142,6 +144,70 @@ Send a prompt to a local Ollama model and receive the response.
 }
 ```
 
+**Elicitation example when the model is missing**
+
+If you call `query_ollama` with a model that does not exist on the selected connection, the server now issues an MCP `elicitation/create` request asking the user to choose one of the available models. This keeps the conversation inside the same tool call instead of failing immediately.
+
+1. Client sends an invalid tool call:
+
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "tools/call",
+      "params": {
+        "name": "query_ollama",
+        "arguments": {
+          "model_name": "llama3-invalid",
+          "prompt": "hello",
+          "connection_name": "local"
+        }
+      },
+      "id": 42
+    }
+    ```
+
+2. The server looks up the real models (for example `llama3` and `mistral`) and prompts the client:
+
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "elicitation/create",
+      "params": {
+        "message": "The model 'llama3-invalid' was not found on 'local'. Please choose another model to continue.",
+        "requested_schema": {
+          "required": ["modelName"],
+          "properties": {
+            "modelName": {
+              "title": "Select an Ollama model",
+              "description": "Pick a model available on 'local'.",
+              "enum": ["llama3", "mistral"],
+              "default": "llama3"
+            }
+          }
+        }
+      },
+      "id": "elicitation-42"
+    }
+    ```
+
+3. After the user selects a model, the client replies:
+
+    ```json
+    {
+      "jsonrpc": "2.0",
+      "method": "elicitation/response",
+      "params": {
+        "request_id": "elicitation-42",
+        "accepted": true,
+        "content": {
+          "modelName": "mistral"
+        }
+      }
+    }
+    ```
+
+4. The server re-runs the original tool call with the selected model (`mistral`) and returns the final `tools/call` result. If the user cancels or the client does not support elicitation, the tool call exits with a descriptive error message.
+
 #### `list_ollama_connections`
 
 List all configured Ollama server connections. Passwords are masked for security.
@@ -159,6 +225,30 @@ List all configured Ollama server connections. Passwords are masked for security
     "arguments": {}
   },
   "id": 2
+}
+```
+
+#### `list_ollama_models`
+
+List all models that the selected Ollama server reports through `/api/tags`. This is especially handy when deciding which model to select during elicitation.
+
+**Parameters:**
+
+* `connection_name` (string, optional) - Name of the Ollama server connection. Uses default if omitted.
+
+**Example Request:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list_ollama_models",
+    "arguments": {
+      "connection_name": "remote-gpu"
+    }
+  },
+  "id": 3
 }
 ```
 

@@ -11,6 +11,7 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
     public class OllamaServiceTests
     {
         [Fact]
+        [Trait("Category", "Integration")]
         public async Task GenerateAsync_ReturnsResponse_WhenCalledWithValidParams()
         {
             // Arrange

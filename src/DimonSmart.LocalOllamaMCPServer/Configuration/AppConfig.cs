@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace DimonSmart.LocalOllamaMCPServer.Configuration
 {
     internal sealed class AppConfig

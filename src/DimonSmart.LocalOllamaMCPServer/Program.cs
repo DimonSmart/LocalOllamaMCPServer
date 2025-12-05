@@ -63,7 +63,7 @@ internal sealed class Program
                 options.ServerInfo ??= new()
                 {
                     Name = "dimonsmart-local-ollama-mcp-server",
-                    Version = "2.0.3"
+                    Version = "2.0.0"
                 };
             })
             .WithStdioServerTransport()
