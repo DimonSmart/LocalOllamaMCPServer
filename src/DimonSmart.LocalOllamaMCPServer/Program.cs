@@ -41,7 +41,6 @@ internal sealed class Program
             .AddEnvironmentVariables();
 
         builder.Services.Configure<AppConfig>(builder.Configuration.GetSection("Ollama"));
-
         // Configure Logging to stderr (as required by MCP)
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole(options =>
@@ -55,6 +54,7 @@ internal sealed class Program
 
         // Register Ollama service
         builder.Services.AddSingleton<IOllamaService, OllamaService>();
+        builder.Services.AddSingleton<RootsState>();
 
         // Configure MCP Server with stdio transport
         builder.Services
@@ -72,7 +72,7 @@ internal sealed class Program
         await builder.Build().RunAsync().ConfigureAwait(false);
     }
 
-    private static void ConfigureHttpClients(IServiceCollection services, IConfiguration configuration)
+    private static void ConfigureHttpClients(IServiceCollection services, ConfigurationManager configuration)
     {
         // Always register the IHttpClientFactory infrastructure
         services.AddHttpClient();
@@ -85,14 +85,14 @@ internal sealed class Program
             appConfig = new AppConfig
             {
                 DefaultServerName = "local",
-                Servers = new List<OllamaServerConfig>
-                {
+                Servers =
+                [
                     new OllamaServerConfig
                     {
                         Name = "local",
                         BaseUrl = new Uri("http://localhost:11434")
                     }
-                }
+                ]
             };
         }
 

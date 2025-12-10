@@ -44,10 +44,10 @@ namespace DimonSmart.LocalOllamaMCPServer.Tests
             var appConfig = new AppConfig
             {
                 DefaultServerName = "local",
-                Servers = new List<OllamaServerConfig>
-                {
+                Servers =
+                [
                     new OllamaServerConfig { Name = "local", BaseUrl = new Uri("http://localhost:11434") }
-                }
+                ]
             };
 
             var mockOptions = new Mock<IOptions<AppConfig>>();

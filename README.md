@@ -9,6 +9,7 @@ A Model Context Protocol (MCP) server that provides tools to query local Ollama 
 ## Features
 
 * **query_ollama** - Send prompts to local Ollama models and get responses
+* **query_ollama_with_file** - Test a prompt template on one or more files from explicit roots
 * **list_ollama_connections** - List all configured Ollama server connections
 * **list_ollama_models** - Inspect which models are available on each Ollama server
 * Interactive elicitation fallback when a requested model is missing (MCP 0.4.1 preview)
@@ -208,6 +209,70 @@ If you call `query_ollama` with a model that does not exist on the selected conn
 
 4. The server re-runs the original tool call with the selected model (`mistral`) and returns the final `tools/call` result. If the user cancels or the client does not support elicitation, the tool call exits with a descriptive error message.
 
+#### `query_ollama_with_file`
+
+Test a prompt template against one or more files that live under the workspace roots advertised by the MCP host (via the `roots/list` request). The server requests those roots at runtime and refuses to read anything outside of them.
+
+**Placeholders in the prompt template:**
+
+* `{{data}}` (default) - replaced with the file contents unless `send_data_as_user_message=true`
+* `{{file_name}}` - replaced with the file name
+* `{{file_path}}` - replaced with the relative path inside the root
+
+**Parameters:**
+
+* `model_name` (string, required) - Target model
+* `prompt_template` (string, required) - Template containing the placeholders above
+* `file_path` (string, optional) - Path to a single file (absolute or relative to a root). Required when `run_for_all=false`
+* `root_name` (string, optional) - Limit search to a specific root (helps disambiguate relative paths)
+* `run_for_all` (bool, optional) - If `true`, process every matching file instead of a single one
+* `file_pattern` (string, optional) - Pattern for `run_for_all` (default: `*.md`)
+* `placeholder` (string, optional) - Custom placeholder to replace with file content (default: `{{data}}`)
+* `send_data_as_user_message` (bool, optional) - Append file content as a separate user-style message instead of inline replacement
+* `max_files` (int, optional) - Limit how many files are processed when `run_for_all=true` (0 = no limit)
+* `options` (object, optional) - Model options
+* `connection_name` (string, optional) - Ollama server connection (default if omitted)
+
+**Example Request (process a single markdown file):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "query_ollama_with_file",
+    "arguments": {
+      "model_name": "llama3",
+      "prompt_template": "Summarize {{file_name}} in 3 bullet points. Content: {{data}}",
+      "file_path": "docs/example.md"
+    }
+  },
+  "id": 99
+}
+```
+
+**Example Request (process all markdown files under a root):**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "query_ollama_with_file",
+    "arguments": {
+      "model_name": "mistral",
+      "prompt_template": "Classify the tone of {{file_path}}. Respond with 'positive', 'neutral', or 'negative'.",
+      "run_for_all": true,
+      "file_pattern": "*.md",
+      "max_files": 5
+    }
+  },
+  "id": 100
+}
+```
+
+If the connected host does not support `roots/list` or returns an empty list, the tool fails with an error instead of touching the filesystem.
+
 #### `list_ollama_connections`
 
 List all configured Ollama server connections. Passwords are masked for security.
@@ -288,6 +353,12 @@ Create or edit `appsettings.json` in the tool's installation directory. The `Def
 - `User` (optional) - Username for Basic authentication
 - `Password` (optional) - Password for Basic authentication
 - `IgnoreSsl` (optional) - Set to `true` to accept self-signed SSL certificates
+
+### Workspace roots for prompt testing
+
+The MCP host (e.g., the VS Code MCP extension) is responsible for advertising filesystem boundaries via `roots/list`. This server requests the list of roots at runtime and restricts all file operations to that set. If the host does not expose any roots, tools such as `query_ollama_with_file` return an error instead of reading arbitrary paths.
+
+Relative `file_path` values are resolved against the reported roots; provide `root_name` to disambiguate when you have multiple workspaces mounted.
 
 ### Configuration via Environment Variables
 
