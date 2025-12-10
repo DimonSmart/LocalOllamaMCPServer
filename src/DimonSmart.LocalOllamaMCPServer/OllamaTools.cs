@@ -11,8 +11,6 @@ internal static class OllamaTools
 {
     private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
     private const string DefaultDataPlaceholder = "{{data}}";
-    private const string FileNamePlaceholder = "{{file_name}}";
-    private const string FilePathPlaceholder = "{{file_path}}";
     internal static readonly char[] anyOf = ['*', '?'];
 
     [McpServerTool(Name = "query_ollama")]
@@ -106,7 +104,7 @@ internal static class OllamaTools
     public static async Task<string> QueryOllamaWithFiles(
         [Description("The name of the model to query (e.g., 'llama3', 'mistral').")]
         string model_name,
-        [Description("Prompt template that may include placeholders like '{{data}}', '{{file_name}}', or '{{file_path}}'.")]
+        [Description("Prompt template that may include '{{data}}' placeholder for file content.")]
         string prompt_template,
         [Description("File mask to apply. Use patterns like '*.*' for all files, '*.cs' for C# files, or a specific name for a single file.")]
         string? file_path = null,
@@ -292,10 +290,7 @@ internal static class OllamaTools
 
         if (template.Contains(DefaultDataPlaceholder, StringComparison.Ordinal))
         {
-            return template
-                .Replace(DefaultDataPlaceholder, fileContent, StringComparison.Ordinal)
-                .Replace(FileNamePlaceholder, Path.GetFileName(file.RelativePath), StringComparison.Ordinal)
-                .Replace(FilePathPlaceholder, file.RelativePath, StringComparison.Ordinal);
+            return template.Replace(DefaultDataPlaceholder, fileContent, StringComparison.Ordinal);
         }
 
         return $"{template}\n\n{DefaultDataPlaceholder}:\n{fileContent}";

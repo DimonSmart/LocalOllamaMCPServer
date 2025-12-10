@@ -215,9 +215,7 @@ Test a prompt template against one or more files that live under the workspace r
 
 **Placeholders in the prompt template:**
 
-* `{{data}}` (default) - replaced with the file contents unless `send_data_as_user_message=true`
-* `{{file_name}}` - replaced with the file name
-* `{{file_path}}` - replaced with the relative path inside the root
+* `{{data}}` - replaced with the file contents unless `send_data_as_user_message=true`
 
 **Parameters:**
 
