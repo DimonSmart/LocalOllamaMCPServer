@@ -11,7 +11,9 @@ internal static class OllamaTools
 {
     private static readonly JsonSerializerOptions IndentedOptions = new() { WriteIndented = true };
     private const string DefaultDataPlaceholder = "{{data}}";
-    internal static readonly char[] anyOf = new[] { '*', '?' };
+    private const string FileNamePlaceholder = "{{file_name}}";
+    private const string FilePathPlaceholder = "{{file_path}}";
+    internal static readonly char[] anyOf = ['*', '?'];
 
     [McpServerTool(Name = "query_ollama")]
     [Description("Send a prompt to a local Ollama model and get the response. Useful for testing prompts against small local models.")]
@@ -99,14 +101,14 @@ internal static class OllamaTools
         }
     }
 
-    [McpServerTool(Name = "query_ollama_with_file")]
-    [Description("Run a prompt template against one or more files inside configured roots and return model responses.")]
-    public static async Task<string> QueryOllamaWithFile(
+    [McpServerTool(Name = "query_ollama_with_files")]
+    [Description("Run a prompt template against one or more files inside configured roots and return model responses. Supports wildcards for batch processing.")]
+    public static async Task<string> QueryOllamaWithFiles(
         [Description("The name of the model to query (e.g., 'llama3', 'mistral').")]
         string model_name,
         [Description("Prompt template that may include placeholders like '{{data}}', '{{file_name}}', or '{{file_path}}'.")]
         string prompt_template,
-        [Description("File mask to apply. Use patterns like '*.*' for all or a specific name for a single file.")]
+        [Description("File mask to apply. Use patterns like '*.*' for all files, '*.cs' for C# files, or a specific name for a single file.")]
         string? file_path = null,
         [Description("If true, appends the file content as a separate user-style message instead of inline replacement.")]
         bool send_data_as_user_message = false,
@@ -125,117 +127,192 @@ internal static class OllamaTools
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt_template);
         ArgumentException.ThrowIfNullOrWhiteSpace(model_name);
 
+        if (max_files < 0)
+        {
+            return "Error: max_files must be zero or positive.";
+        }
+
         var (fileSystem, rootError) = await CreateWorkspaceFileSystemAsync(rootsState, server, logger, cancellationToken).ConfigureAwait(false);
         if (fileSystem is null)
         {
             return $"Error: {rootError}";
         }
 
-        if (max_files < 0)
-        {
-            return "Error: max_files must be zero or positive.";
-        }
-
         var mask = string.IsNullOrWhiteSpace(file_path) ? "*.*" : file_path.Trim();
-        var filesToProcess = new List<WorkspaceFileSystem.WorkspaceFile>();
-        var hasWildcards = HasWildcards(mask);
-
-        if (hasWildcards)
+        var (filesToProcess, resolveError) = ResolveFiles(fileSystem, mask, max_files);
+        if (resolveError is not null)
         {
-            var limit = max_files > 0 ? max_files : (int?)null;
-            filesToProcess.AddRange(fileSystem.EnumerateFiles(mask, null, limit));
-
-            if (filesToProcess.Count == 0)
-            {
-                return $"Error: No files matching '{mask}' were found inside the workspace roots.";
-            }
-        }
-        else
-        {
-            if (!fileSystem.TryResolveFile(mask, null, out var resolved, out var resolveError))
-            {
-                return $"Error: {resolveError}";
-            }
-
-            filesToProcess.Add(resolved!);
+            return $"Error: {resolveError}";
         }
 
         logger.LogInformation(
-            "QueryOllamaWithFile called: model={Model}, connection={Connection}, mask={Mask}, files={Count}, roots={Roots}",
+            "QueryOllamaWithFiles: model={Model}, connection={Connection}, mask={Mask}, files={Count}",
             model_name,
             connection_name ?? "default",
             mask,
-            filesToProcess.Count,
-            string.Join(", ", fileSystem.Roots.Select(r => r.Name)));
+            filesToProcess.Count);
 
-        var results = new List<object>();
-        var placeholderToken = DefaultDataPlaceholder;
+        var results = await ProcessFilesAsync(
+            filesToProcess,
+            fileSystem,
+            model_name,
+            prompt_template,
+            send_data_as_user_message,
+            connection_name,
+            ollamaService,
+            logger,
+            cancellationToken).ConfigureAwait(false);
 
-        foreach (var file in filesToProcess)
+        return BuildResponse(model_name, connection_name, mask, fileSystem, results);
+    }
+
+    private static (List<WorkspaceFileSystem.WorkspaceFile> Files, string? Error) ResolveFiles(
+        WorkspaceFileSystem fileSystem,
+        string mask,
+        int maxFiles)
+    {
+        if (!HasWildcards(mask))
         {
-            string fileContent;
-            try
+            if (!fileSystem.TryResolveFile(mask, null, out var resolved, out var resolveError))
             {
-                fileContent = await fileSystem.ReadFileAsync(file, cancellationToken).ConfigureAwait(false);
+                return ([], resolveError);
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to read file {File}", file.AbsolutePath);
-                results.Add(new
-                {
-                    file = file.RelativePath,
-                    root = file.Root.Name,
-                    status = "read_error",
-                    error = ex.Message
-                });
-                continue;
-            }
+            return ([resolved!], null);
+        }
 
-            string finalPrompt;
-            if (send_data_as_user_message)
-            {
-                finalPrompt = $"{prompt_template}\n\n[user data from {file.RelativePath}]\n{fileContent}";
-            }
-            else if (prompt_template.Contains(placeholderToken, StringComparison.Ordinal))
-            {
-                finalPrompt = prompt_template.Replace(placeholderToken, fileContent, StringComparison.Ordinal);
-            }
-            else
-            {
-                finalPrompt = $"{prompt_template}\n\n{placeholderToken}:\n{fileContent}";
-            }
+        var limit = maxFiles > 0 ? maxFiles : (int?)null;
+        var files = fileSystem.EnumerateFiles(mask, null, limit).ToList();
 
-            string response;
-            try
-            {
-                response = await ollamaService.GenerateAsync(
-                    model_name,
-                    finalPrompt,
-                    null,
-                    connection_name,
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error executing QueryOllamaWithFile for {File}", file.RelativePath);
-                response = $"Error: {ex.Message}";
-            }
+        if (files.Count == 0)
+        {
+            return ([], $"No files matching '{mask}' were found inside the workspace roots.");
+        }
 
-            results.Add(new
+        return (files, null);
+    }
+
+    private static async Task<List<object>> ProcessFilesAsync(
+        List<WorkspaceFileSystem.WorkspaceFile> files,
+        WorkspaceFileSystem fileSystem,
+        string modelName,
+        string promptTemplate,
+        bool sendDataAsUserMessage,
+        string? connectionName,
+        IOllamaService ollamaService,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var results = new List<object>();
+
+        foreach (var file in files)
+        {
+            var result = await ProcessSingleFileAsync(
+                file,
+                fileSystem,
+                modelName,
+                promptTemplate,
+                sendDataAsUserMessage,
+                connectionName,
+                ollamaService,
+                logger,
+                cancellationToken).ConfigureAwait(false);
+
+            results.Add(result);
+        }
+
+        return results;
+    }
+
+    private static async Task<object> ProcessSingleFileAsync(
+        WorkspaceFileSystem.WorkspaceFile file,
+        WorkspaceFileSystem fileSystem,
+        string modelName,
+        string promptTemplate,
+        bool sendDataAsUserMessage,
+        string? connectionName,
+        IOllamaService ollamaService,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        string fileContent;
+        try
+        {
+            fileContent = await fileSystem.ReadFileAsync(file, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to read file {File}", file.AbsolutePath);
+            return new
             {
                 file = file.RelativePath,
                 root = file.Root.Name,
-                status = response.StartsWith("Error:", StringComparison.OrdinalIgnoreCase) ? "error" : "ok",
-                prompt_preview = BuildPreview(finalPrompt),
-                response
-            });
+                status = "read_error",
+                error = ex.Message
+            };
         }
 
+        var finalPrompt = BuildPrompt(promptTemplate, fileContent, file, sendDataAsUserMessage);
+
+        string response;
+        try
+        {
+            response = await ollamaService.GenerateAsync(
+                modelName,
+                finalPrompt,
+                null,
+                connectionName,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error processing file {File}", file.RelativePath);
+            response = $"Error: {ex.Message}";
+        }
+
+        return new
+        {
+            file = file.RelativePath,
+            root = file.Root.Name,
+            status = response.StartsWith("Error:", StringComparison.OrdinalIgnoreCase) ? "error" : "ok",
+            prompt_preview = BuildPreview(finalPrompt),
+            response
+        };
+    }
+
+    private static string BuildPrompt(
+        string template,
+        string fileContent,
+        WorkspaceFileSystem.WorkspaceFile file,
+        bool sendDataAsUserMessage)
+    {
+        if (sendDataAsUserMessage)
+        {
+            return $"{template}\n\n[user data from {file.RelativePath}]\n{fileContent}";
+        }
+
+        if (template.Contains(DefaultDataPlaceholder, StringComparison.Ordinal))
+        {
+            return template
+                .Replace(DefaultDataPlaceholder, fileContent, StringComparison.Ordinal)
+                .Replace(FileNamePlaceholder, Path.GetFileName(file.RelativePath), StringComparison.Ordinal)
+                .Replace(FilePathPlaceholder, file.RelativePath, StringComparison.Ordinal);
+        }
+
+        return $"{template}\n\n{DefaultDataPlaceholder}:\n{fileContent}";
+    }
+
+    private static string BuildResponse(
+        string modelName,
+        string? connectionName,
+        string mask,
+        WorkspaceFileSystem fileSystem,
+        List<object> results)
+    {
         var payload = new
         {
-            model = model_name,
-            connection = connection_name ?? "default",
-            placeholder = placeholderToken,
+            model = modelName,
+            connection = connectionName ?? "default",
+            placeholder = DefaultDataPlaceholder,
             mask,
             files = results.Count,
             roots = fileSystem.Roots.Select(r => new { r.Name, r.Path }),

@@ -9,7 +9,7 @@ A Model Context Protocol (MCP) server that provides tools to query local Ollama 
 ## Features
 
 * **query_ollama** - Send prompts to local Ollama models and get responses
-* **query_ollama_with_file** - Test a prompt template on one or more files from explicit roots
+* **query_ollama_with_files** - Test a prompt template on one or more files from workspace roots (supports wildcards)
 * **list_ollama_connections** - List all configured Ollama server connections
 * **list_ollama_models** - Inspect which models are available on each Ollama server
 * Interactive elicitation fallback when a requested model is missing (MCP 0.4.1 preview)
@@ -209,9 +209,9 @@ If you call `query_ollama` with a model that does not exist on the selected conn
 
 4. The server re-runs the original tool call with the selected model (`mistral`) and returns the final `tools/call` result. If the user cancels or the client does not support elicitation, the tool call exits with a descriptive error message.
 
-#### `query_ollama_with_file`
+#### `query_ollama_with_files`
 
-Test a prompt template against one or more files that live under the workspace roots advertised by the MCP host (via the `roots/list` request). The server requests those roots at runtime and refuses to read anything outside of them.
+Test a prompt template against one or more files that live under the workspace roots advertised by the MCP host (via the `roots/list` request). The server requests those roots at runtime and refuses to read anything outside of them. Supports wildcards for batch processing multiple files.
 
 **Placeholders in the prompt template:**
 
@@ -223,14 +223,9 @@ Test a prompt template against one or more files that live under the workspace r
 
 * `model_name` (string, required) - Target model
 * `prompt_template` (string, required) - Template containing the placeholders above
-* `file_path` (string, optional) - Path to a single file (absolute or relative to a root). Required when `run_for_all=false`
-* `root_name` (string, optional) - Limit search to a specific root (helps disambiguate relative paths)
-* `run_for_all` (bool, optional) - If `true`, process every matching file instead of a single one
-* `file_pattern` (string, optional) - Pattern for `run_for_all` (default: `*.md`)
-* `placeholder` (string, optional) - Custom placeholder to replace with file content (default: `{{data}}`)
+* `file_path` (string, optional) - File mask to apply. Use patterns like `*.*` for all files, `*.cs` for C# files, or a specific name for a single file
 * `send_data_as_user_message` (bool, optional) - Append file content as a separate user-style message instead of inline replacement
-* `max_files` (int, optional) - Limit how many files are processed when `run_for_all=true` (0 = no limit)
-* `options` (object, optional) - Model options
+* `max_files` (int, optional) - Limit how many files are processed when using wildcards (0 = no limit)
 * `connection_name` (string, optional) - Ollama server connection (default if omitted)
 
 **Example Request (process a single markdown file):**
@@ -240,7 +235,7 @@ Test a prompt template against one or more files that live under the workspace r
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
-    "name": "query_ollama_with_file",
+    "name": "query_ollama_with_files",
     "arguments": {
       "model_name": "llama3",
       "prompt_template": "Summarize {{file_name}} in 3 bullet points. Content: {{data}}",
@@ -258,12 +253,11 @@ Test a prompt template against one or more files that live under the workspace r
   "jsonrpc": "2.0",
   "method": "tools/call",
   "params": {
-    "name": "query_ollama_with_file",
+    "name": "query_ollama_with_files",
     "arguments": {
       "model_name": "mistral",
       "prompt_template": "Classify the tone of {{file_path}}. Respond with 'positive', 'neutral', or 'negative'.",
-      "run_for_all": true,
-      "file_pattern": "*.md",
+      "file_path": "*.md",
       "max_files": 5
     }
   },
@@ -356,9 +350,9 @@ Create or edit `appsettings.json` in the tool's installation directory. The `Def
 
 ### Workspace roots for prompt testing
 
-The MCP host (e.g., the VS Code MCP extension) is responsible for advertising filesystem boundaries via `roots/list`. This server requests the list of roots at runtime and restricts all file operations to that set. If the host does not expose any roots, tools such as `query_ollama_with_file` return an error instead of reading arbitrary paths.
+The MCP host (e.g., the VS Code MCP extension) is responsible for advertising filesystem boundaries via `roots/list`. This server requests the list of roots at runtime and restricts all file operations to that set. If the host does not expose any roots, tools such as `query_ollama_with_files` return an error instead of reading arbitrary paths.
 
-Relative `file_path` values are resolved against the reported roots; provide `root_name` to disambiguate when you have multiple workspaces mounted.
+Relative `file_path` values are resolved against the reported roots. Tools such as `query_ollama_with_files` return an error if the host does not expose any roots.
 
 ### Configuration via Environment Variables
 
