@@ -44,8 +44,7 @@ internal sealed class TestSessionManager
 
     internal TestSessionManager(TimeProvider clock, TimeSpan idleTimeout)
     {
-        if (idleTimeout <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(idleTimeout));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(idleTimeout, TimeSpan.Zero);
 
         _clock = clock;
         _idleTimeout = idleTimeout;

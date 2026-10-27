@@ -85,6 +85,40 @@ public sealed class SessionTests
     }
 
     [Fact]
+    public async Task SingleToolCallCanBeSatisfiedByOneSimulatedToolResult()
+    {
+        var assistant = JsonSerializer.Serialize(new
+        {
+            role = "assistant",
+            content = (string?)null,
+            tool_calls = new[]
+            {
+                new { id = "only-call", type = "function", function = new { name = "lookup", arguments = "{}" } }
+            }
+        });
+        var turns = 0;
+        using var http = Http((_, _) =>
+        {
+            turns++;
+            return Task.FromResult(Reply(turns == 1
+                ? Completion(assistant, "tool_calls")
+                : Completion(@"{""role"":""assistant"",""content"":""Resolved""}", "stop")));
+        });
+        var sessions = NewSessions();
+        var id = NewId(OllamaTools.CreateSession("small", sessions));
+        var client = new OpenAiOllamaClient(http);
+
+        var first = J(await OllamaTools.Chat(id, J(@"[{""role"":""user"",""content"":""lookup""}]"), sessions, client));
+        Assert.Equal("only-call", first.GetProperty("message").GetProperty("tool_calls")[0].GetProperty("id").GetString());
+
+        var answer = J(await OllamaTools.Chat(id,
+            J(@"[{""role"":""tool"",""tool_call_id"":""only-call"",""content"":""simulated""}]"), sessions, client));
+        Assert.Equal("Resolved", answer.GetProperty("message").GetProperty("content").GetString());
+        Assert.Equal(2, turns);
+        Assert.Equal(4, J(await OllamaTools.GetSession(id, sessions)).GetProperty("history").GetArrayLength());
+    }
+
+    [Fact]
     public async Task MultipleToolCallsRequireExactBatchBeforeModelContinues()
     {
         var toolMessage = JsonSerializer.Serialize(new

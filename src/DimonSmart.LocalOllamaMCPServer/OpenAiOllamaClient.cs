@@ -17,7 +17,7 @@ internal sealed class OpenAiOllamaClient
 
     internal async Task<JsonElement> ListModelsAsync(CancellationToken cancellationToken)
     {
-        using var response = await _client.GetAsync("models", cancellationToken).ConfigureAwait(false);
+        using var response = await _client.GetAsync(new Uri("models", UriKind.Relative), cancellationToken).ConfigureAwait(false);
         return await ReadResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
